@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Raj's Smart Inventory</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        background-color: #f8f9fa;
+      }
+      .card {
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .table-container {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+      }
+      #invoiceSection {
+        border-left: 5px solid #0d6efd;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container py-5">
+      <h2 class="mb-4 text-primary fw-bold">📦 Smart Inventory & AI Pricing</h2>
+
+      <div
+        id="invoiceSection"
+        class="alert alert-info shadow-sm mb-4"
+        style="display: none"
+      >
+        <h5 class="alert-heading">Transaction Details</h5>
+        <p id="invoiceDetails" class="mb-0"></p>
+        <hr />
+        <button class="btn btn-sm btn-outline-primary" onclick="window.print()">
+          Print Receipt
+        </button>
+        <button
+          class="btn btn-sm btn-outline-secondary"
+          onclick="this.parentElement.style.display = 'none'"
+        >
+          Close
+        </button>
+      </div>
+
+      <div class="card p-4 mb-5">
+        <h5 class="card-title mb-3">Add New Item</h5>
+        <div class="row g-3">
+          <div class="col-md-3">
+            <input
+              type="text"
+              id="newName"
+              class="form-control"
+              placeholder="Product Name"
+            />
+          </div>
+          <div class="col-md-2">
+            <input
+              type="number"
+              id="newQty"
+              class="form-control"
+              placeholder="Quantity"
+            />
+          </div>
+          <div class="col-md-3">
+            <div class="input-group">
+              <input
+                type="number"
+                id="newPrice"
+                class="form-control"
+                placeholder="Price"
+              />
+              <button class="btn btn-dark" onclick="getAiRecommendation()">
+                🤖 AI
+              </button>
+            </div>
+            <small id="aiRecommendationText" class="text-muted"></small>
+          </div>
+          <div class="col-md-4">
+            <button onclick="addNewProduct()" class="btn btn-primary w-100">
+              Add to Inventory
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-container shadow-sm">
+        <h5 class="mb-3">Current Stock</h5>
+        <table class="table table-hover">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Price (₹)</th>
+              <th>Stock</th>
+              <th class="text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="productTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      // Functions remain the same but with updated UI targets
+      function loadProducts() {
+        fetch("/api/products")
+          .then((res) => res.json())
+          .then((products) => {
+            const body = document.getElementById("productTableBody");
+            body.innerHTML = "";
+            products.forEach((p) => {
+              body.innerHTML += `
+                        <tr>
+                            <td>${p.id}</td>
+                            <td><strong>${p.name}</strong></td>
+                            <td>${p.price}</td>
+                            <td><span class="badge ${p.quantity < 5 ? "bg-danger" : "bg-success"}">${p.quantity}</span></td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-success" onclick="sellItem(${p.id})">Sell 1</button>
+                            </td>
+                        </tr>`;
+            });
+          });
+      }
+
+      function getAiRecommendation() {
+        const qty = document.getElementById("newQty").value;
+        if (!qty) {
+          alert("Enter quantity first!");
+          return;
+        }
+        fetch(`/api/products/ai-suggest-price?qty=${qty}&cat=1`)
+          .then((res) => res.json())
+          .then((data) => {
+            document.getElementById("newPrice").value = data.recommended_price;
+            document.getElementById("aiRecommendationText").innerText =
+              "AI Recommended Price";
+          });
+      }
+
+      function addNewProduct() {
+        const data = {
+          name: document.getElementById("newName").value,
+          price: document.getElementById("newPrice").value,
+          quantity: document.getElementById("newQty").value,
+        };
+        fetch("/api/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        }).then(() => {
+          loadProducts();
+        });
+      }
+
+      function sellItem(id) {
+        fetch(`/api/products/sell/${id}/1`, { method: "POST" })
+          .then((res) => res.text())
+          .then((msg) => {
+            document.getElementById("invoiceSection").style.display = "block";
+            document.getElementById("invoiceDetails").innerText = msg;
+            loadProducts();
+          });
+      }
+
+      loadProducts();
+    </script>
+  </body>
+</html>
